@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wordle Clone</title>
+    <style>
+        :root {
+            --color-correct: #6aaa64;
+            --color-present: #c9b458;
+            --color-absent: #787c7e;
+            --color-border: #e2e8f0; /* Softer, subtle border color */
+            --color-active-border: #94a3b8;
+            --color-key-bg: #f1f5f9; /* Lighter background for better contrast with shadows */
+            --color-text: #1e293b;
+            --color-bg: #ffffff;
+            --radius-md: 8px; /* Unified corner rounding */
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05); /* Softer shadows */
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            height: -webkit-fill-available;
+            overflow: hidden;
+        }
+
+        header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 50px;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 0.2rem;
+            text-transform: uppercase;
+        }
+
+        #game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 10px;
+        }
+
+        /* Board Styles */
+        #board {
+            display: grid;
+            grid-template-rows: repeat(6, 1fr);
+            gap: 8px; /* Slightly wider gap for the rounded/shadow aesthetic */
+            width: 330px;
+            height: 400px;
+            max-width: 100%;
+            padding: 10px;
+            margin: auto;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .tile {
+            border: 1.5px solid var(--color-border);
+            border-radius: var(--radius-md); /* Matching rounded corners */
+            box-shadow: var(--shadow-sm); /* Soft tile shadow */
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            line-height: 2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: transform 0.25s linear, background-color 0.2s ease, border-color 0.2s ease;
+            backface-visibility: hidden;
+            background-color: var(--color-bg);
+        }
+
+        .tile.pop {
+            animation: pop 0.1s ease-in-out;
+            border-color: var(--color-active-border);
+            box-shadow: var(--shadow-md);
+        }
+
+        .tile.flip {
+            transform: rotateX(90deg);
+        }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
+        }
+
+        /* Colored States */
+        .correct {
+            background-color: var(--color-correct) !important;
+            border-color: var(--color-correct) !important;
+            color: white;
+            box-shadow: none; /* Flatten shadow slightly on reveal for a clean finish */
+        }
+        .present {
+            background-color: var(--color-present) !important;
+            border-color: var(--color-present) !important;
+            color: white;
+            box-shadow: none;
+        }
+        .absent {
+            background-color: var(--color-absent) !important;
+            border-color: var(--color-absent) !important;
+            color: white;
+            box-shadow: none;
+        }
+
+        /* Keyboard Styles */
+        #keyboard {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-bottom: 10px;
+        }
+
+        .keyboard-row {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            gap: 6px;
+        }
+
+        .key {
+            background-color: var(--color-key-bg);
+            border: 1px solid var(--color-border); /* Subtle matching keyboard border */
+            border-radius: var(--radius-md); /* Matching keyboard corners */
+            box-shadow: var(--shadow-sm); /* Matching soft keyboard shadow */
+            height: 58px;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.25rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            color: var(--color-text);
+            transition: background-color 0.1s ease, transform 0.05s ease, box-shadow 0.05s ease;
+        }
+
+        .key:active {
+            transform: translateY(1px); /* Little tactile press effect */
+            box-shadow: none;
+            opacity: 0.9;
+        }
+
+        .key.wide-key {
+            flex: 1.5;
+            font-size: 0.85rem;
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .toast {
+            background-color: #1e293b;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            font-weight: bold;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+            box-shadow: var(--shadow-md);
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* Modal Styles */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(2px); /* Soft background blur */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+        }
+
+        #modal-overlay.open {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        #modal {
+            background-color: var(--color-bg);
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 90%;
+            width: 350px;
+            text-align: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            border: 1px solid var(--color-border);
+        }
+
+        #modal h2 {
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+
+        #modal p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        #play-again-btn {
+            background-color: var(--color-correct);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            text-transform: uppercase;
+            width: 100%;
+            box-shadow: var(--shadow-sm);
+        }
+
+        #play-again-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-height: 650px) {
+            #board {
+                height: 320px;
+                width: 270px;
+                gap: 6px;
+            }
+            .row {
+                gap: 6px;
+            }
+            .tile {
+                font-size: 1.5rem;
+                border-radius: 6px;
+            }
+            .key {
+                height: 48px;
+                font-size: 1rem;
+                border-radius: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>Wordle</header>
+
+    <div id="game-container">
+        <div id="board"></div>
+
+        <div id="keyboard">
+            <div class="keyboard-row">
+                <button class="key" data-key="q">q</button>
+                <button class="key" data-key="w">w</button>
+                <button class="key" data-key="e">e</button>
+                <button class="key" data-key="r">r</button>
+                <button class="key" data-key="t">t</button>
+                <button class="key" data-key="y">y</button>
+                <button class="key" data-key="u">u</button>
+                <button class="key" data-key="i">i</button>
+                <button class="key" data-key="o">o</button>
+                <button class="key" data-key="p">p</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key" data-key="a">a</button>
+                <button class="key" data-key="s">s</button>
+                <button class="key" data-key="d">d</button>
+                <button class="key" data-key="f">f</button>
+                <button class="key" data-key="g">g</button>
+                <button class="key" data-key="h">h</button>
+                <button class="key" data-key="j">j</button>
+                <button class="key" data-key="k">k</button>
+                <button class="key" data-key="l">l</button>
+            </div>
+            <div class="keyboard-row">
+                <button class="key wide-key" data-key="enter">ENTER</button>
+                <button class="key" data-key="z">z</button>
+                <button class="key" data-key="x">x</button>
+                <button class="key" data-key="c">c</button>
+                <button class="key" data-key="v">v</button>
+                <button class="key" data-key="b">b</button>
+                <button class="key" data-key="n">n</button>
+                <button class="key" data-key="m">m</button>
+                <button class="key wide-key" data-key="backspace">⌫</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="modal-overlay">
+        <div id="modal">
+            <h2 id="modal-title">You Win!</h2>
+            <p id="modal-message"></p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Target/valid guess word lists
+        const targetWords = ["apple", "beach", "crane", "dance", "eagle", "flame", "giant", "house", "image", "juice", "knife", "lemon", "money", "night", "ocean", "paper", "queen", "river", "smile", "tiger", "uncle", "voice", "water", "young", "zebra", "about", "above", "angry", "basic", "brand", "brave", "cable", "clock", "cream", "depth", "draft", "dream", "earth", "event", "extra", "faith", "field", "floor", "focus", "frame", "fresh", "front", "fruit", "glass", "globe", "grand", "grass", "green", "group", "guide", "happy", "heart", "heavy", "hotel", "ideal", "inner", "irony", "joint", "judge", "knock", "layer", "light", "local", "logic", "lucky", "magic", "major", "match", "metal", "model", "motor", "mouth", "music", "novel", "nurse", "outer", "panel", "phase", "phone", "pilot", "pitch", "place", "plain", "plant", "plate", "point", "pound", "power", "press", "price", "pride", "prize", "proud", "prove", "queen", "quick", "quiet", "quite", "radio", "raise", "range", "ratio", "reach", "relax", "reply", "route", "royal", "rural", "scale", "scene", "scope", "score", "sense", "shape", "share", "sharp", "sheet", "shelf", "shirt", "shock", "sight", "skill", "sleep", "smart", "smoke", "solid", "sound", "space", "spark", "speak", "speed", "spend", "spite", "split", "sport", "squad", "stage", "stair", "stake", "stamp", "stand", "stare", "start", "state", "steam", "steel", "stick", "still", "stock", "stone", "store", "storm", "story", "strip", "stuck", "style", "sugar", "suite", "sweet", "table", "taste", "theme", "there", "thick", "thing", "think", "three", "throw", "tight", "title", "total", "touch", "tough", "tower", "track", "trade", "train", "trend", "trial", "trick", "truth", "twice", "under", "union", "unity", "until", "upper", "upset", "urban", "value", "video", "virus", "visit", "vital", "voice", "waste", "watch", "water", "wheel", "where", "which", "while", "white", "whole", "whose", "woman", "world", "worry", "worth", "write", "wrong", "yield", "youth"];
+        const validGuesses = new Set([...targetWords, "react", "adieu", "audio", "stare", "tears", "roate", "lares", "slane", "resin", "cares", "pears", "snare", "coder", "bytes", "array", "pixel", "logic", "input", "mouse", "print", "debug", "click", "cloud", "cyber", "drive", "email", "flash", "graph", "index", "layer", "macro", "modem", "patch", "phone", "queue", "robot", "stack", "token", "utils", "virus", "wafer", "width", "abort", "align", "alloc", "alpha", "async", "audio", "audit", "badge", "batch", "binary", "blink", "board", "boost", "cache", "cards", "chart", "check", "chips", "chunk", "class", "clear", "clone", "close", "cluster", "color", "count", "crash", "crypt", "delay", "dirty", "empty", "epoch", "erase", "error", "event", "excel", "fetch", "field", "files", "first", "float", "fonts", "frame", "gates", "glitch", "guide", "heads", "hosts", "image", "inode", "items", "laser", "latch", "links", "lists", "local", "loops", "masks", "media", "merge", "nodes", "octal", "pages", "panel", "parse", "paths", "pipes", "ports", "proxy", "pulse", "query", "radar", "ramps", "range", "ready", "reset", "route", "outer", "rules", "scale", "scope", "scrap", "scroll", "seeds", "setup", "shell", "shift", "sites", "slice", "smart", "solid", "sonic", "sorts", "space", "spans", "spawn", "speed", "split", "spool", "state", "stats", "store", "strip", "style", "syncs", "table", "tabs", "tasks", "tests", "theme", "tools", "trace", "track", "trees", "tuple", "types", "units", "users", "valid", "value", "views", "voice", "wires", "words"]);
+
+        const MAX_GUESSES = 6;
+        const WORD_LENGTH = 5;
+        
+        let targetWord = "";
+        let currentGuess = "";
+        let guesses = [];
+        let gameEnded = false;
+
+        const board = document.getElementById("board");
+        const modalOverlay = document.getElementById("modal-overlay");
+        const modalTitle = document.getElementById("modal-title");
+        const modalMessage = document.getElementById("modal-message");
+        const playAgainBtn = document.getElementById("play-again-btn");
+
+        function initGame() {
+            board.innerHTML = "";
+            guesses = [];
+            currentGuess = "";
+            gameEnded = false;
+            targetWord = targetWords[Math.floor(Math.random() * targetWords.length)];
+            
+            for (let i = 0; i < MAX_GUESSES; i++) {
+                const row = document.createElement("div");
+                row.className = "row";
+                for (let j = 0; j < WORD_LENGTH; j++) {
+                    const tile = document.createElement("div");
+                    tile.className = "tile";
+                    row.appendChild(tile);
+                }
+                board.appendChild(row);
+            }
+
+            document.querySelectorAll(".key").forEach(key => {
+                key.classList.remove("correct", "present", "absent");
+                key.style.boxShadow = "var(--shadow-sm)"; // Reset keyboard shadows
+                key.style.borderColor = "var(--color-border)";
+            });
+
+            modalOverlay.classList.remove("open");
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (gameEnded) return;
+            if (e.key === "Enter") {
+                handleEnter();
+            } else if (e.key === "Backspace") {
+                handleBackspace();
+            } else
